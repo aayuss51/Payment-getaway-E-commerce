@@ -1,0 +1,44 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.email in ['admin@bazaar.np', 'bazaar@admin.com', 'sapkotaaayush8848@gmail.com']);
+    }
+
+    // Products
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn(); // ideally check vendor ownership but folder-level is safer for now
+    }
+    
+    // User Profiles
+    match /profiles/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(uid) || isAdmin();
+    }
+    
+    // Vendor Logos & Banners
+    match /vendor_logos/{allPaths=**} { allow read: if true; allow write: if isSignedIn(); }
+    match /vendor_banners/{allPaths=**} { allow read: if true; allow write: if isSignedIn(); }
+    
+    // Vendor KYC Documents
+    match /vendors/{uid}/documents/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,64 @@
+BAZAAR PAYMENT INTEGRATION GUIDE (eSewa & Khalti)
+==================================================
+
+1. ESEWA INTEGRATION (EPAY V2)
+-----------------------------
+eSewa requires a signature-based form submission.
+
+A. Required Credentials:
+   - Merchant Secret Key (Provided by eSewa)
+   - Product Code (e.g., EPAYTEST for sandbox)
+
+B. Backend Logic (to be implemented in paymentController.ts):
+   - Generate HMAC-SHA256 signature using: "total_amount,transaction_uuid,product_code"
+   - Use the Secret Key to sign the string.
+
+C. Frontend Logic:
+   - Submit a POST form to: https://rc-epay.esewa.com.np/api/epay/main/v2/form
+   - Fields: amount, tax_amount, total_amount, transaction_uuid, product_code, product_service_charge, product_delivery_charge, success_url, failure_url, signed_field_names, signature.
+
+D. Verification:
+   - On Success URL, receive 'data' (base64 encoded).
+   - Backend decodes and calls eSewa Verification API to confirm.
+
+
+2. KHALTI INTEGRATION
+--------------------
+Khalti uses a REST API for initiation and lookup.
+
+A. Required Credentials:
+   - Secret Key (Live or Test)
+
+B. Backend Initiation:
+   - POST to: https://a.khalti.com/api/v2/epayment/initiate/
+   - Body: return_url, purchase_order_id, purchase_order_name, amount (in Paisa, i.e., Rs. 1 = 100)
+   - Response: pidx, payment_url.
+
+C. Frontend:
+   - Redirect user to the 'payment_url' provided by the backend.
+
+D. Backend Verification:
+   - After redirect, receive 'pidx' on return_url.
+   - POST to: https://a.khalti.com/api/v2/epayment/lookup/
+   - Header: Authorization: Key <SECRET_KEY>
+   - Body: { "pidx": "<pidx>" }
+
+
+3. ENV CONFIGURATION
+-------------------
+Add these to your .env file once you have the keys:
+
+ESEWA_SECRET_KEY=8g8M89&p348YKG6F!
+ESEWA_PRODUCT_CODE=EPAYTEST
+KHALTI_SECRET_KEY=live_secret_key_...
+KHALTI_BASE_URL=https://a.khalti.com/api/v2
+
+
+4. FLOW SUMMARY
+--------------
+1. User clicks "Pay" on Frontend.
+2. Frontend calls Backend API to get signed data/payment URL.
+3. User is redirected to eSewa/Khalti.
+4. User pays and is redirected back to Bazaar (Success Page).
+5. Backend verifies payment status with the gateway.
+6. Backend updates Order status in MongoDB/Firestore.

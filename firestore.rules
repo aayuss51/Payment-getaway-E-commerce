@@ -1,0 +1,216 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // PILLAR 3: Primitive Helpers
+    // ===============================================================
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    
+    function isAdmin() {
+      return isEmailVerified() && (
+        request.auth.token.email in [
+          'admin@bazaar.np',
+          'bazaar@admin.com',
+          'sapkotaaayush8848@gmail.com'
+        ] || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        )
+      );
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ===============================================================
+    // PILLAR 2: Validation Blueprints (Identity Integrity & Strict Keys)
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.keys().size() >= 3 &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 200 &&
+             data.role in ['buyer', 'vendor', 'admin', 'customer_support', 'sales_manager'];
+    }
+
+    function isValidVendor(data) {
+      return data.keys().hasAll(['uid', 'storeName', 'status']) &&
+             data.uid == request.auth.uid &&
+             data.storeName is string && data.storeName.size() <= 200 &&
+             data.status in ['pending', 'approved', 'rejected', 'suspended'];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['vendorId', 'name', 'price', 'category']) &&
+             data.vendorId is string && data.vendorId.size() <= 128 &&
+             data.name is string && data.name.size() <= 500 &&
+             data.price is number && data.price >= 0;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['buyerId', 'items', 'totalAmount', 'status']) &&
+             data.buyerId == request.auth.uid &&
+             data.items is list && data.items.size() <= 50 &&
+             data.totalAmount is number && data.totalAmount >= 0;
+    }
+
+    // ===============================================================
+    // COLLECTION RULES
+    // ===============================================================
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role != 'admin' || isAdmin());
+      
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    isValidUser(incoming()) && 
+                    (
+                      isAdmin() ||
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'phoneNumber', 'bio', 'address', 'hasPendingVendorApplication']) &&
+                       incoming().role == existing().role)
+                    );
+    }
+
+    match /vendors/{vendorId} {
+      allow get: if true;
+      allow list: if true;
+      
+      allow create: if isOwner(vendorId) && isValidVendor(incoming()) && incoming().status == 'pending' && !('kycDetails' in incoming());
+      
+      allow update: if isAdmin() || (
+        isOwner(vendorId) && isValidVendor(incoming()) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['storeName', 'description', 'shopLocation', 'logoUrl', 'bannerUrl', 'sliderImages', 'getawayMessages', 'isOnline', 'whatsappNumber', 'esewaId', 'khaltiId']) &&
+        incoming().status == existing().status &&
+        !('kycDetails' in incoming())
+      );
+      
+      match /private/kyc {
+        allow read: if isOwner(vendorId) || isAdmin();
+        allow write: if isOwner(vendorId) || isAdmin();
+      }
+    }
+
+    match /pan_registry/{panNumber} {
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && incoming().uid == request.auth.uid && !exists(/databases/$(database)/documents/pan_registry/$(panNumber));
+      allow update, delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow get: if resource.data.status == 'active' || (isEmailVerified() && (isOwner(resource.data.vendorId) || isAdmin()));
+      allow list: if resource.data.status == 'active' || (isEmailVerified() && (isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid)));
+      
+      allow create: if isEmailVerified() && isValidProduct(incoming()) && (isOwner(incoming().vendorId) || isAdmin());
+      
+      allow update: if isEmailVerified() && isValidProduct(incoming()) && (isOwner(existing().vendorId) || isAdmin()) &&
+                    (
+                      isAdmin() ||
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'price', 'category', 'images', 'stock', 'status', 'variants', 'colors', 'sizes', 'brand', 'seo'])
+                    );
+      
+      allow delete: if isAdmin() || (isEmailVerified() && isOwner(existing().vendorId));
+    }
+
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (isOwner(resource.data.buyerId) || isAdmin() || (exists(/databases/$(database)/documents/vendors/$(request.auth.uid))));
+      allow list: if isSignedIn() && (isOwner(resource.data.buyerId) || isAdmin());
+      
+      allow create: if isEmailVerified() && isValidOrder(incoming()) && incoming().status == 'pending';
+      
+      allow update: if isAdmin() || (
+        isEmailVerified() && 
+        (isOwner(existing().buyerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'cancelled' && existing().status == 'pending')
+      );
+    }
+
+    match /brands/{brandId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /payouts/{payoutId} {
+      allow read: if isEmailVerified() && (isOwner(resource.data.vendorId) || isAdmin());
+      allow create: if isEmailVerified() && isOwner(incoming().vendorId) && incoming().status == 'pending';
+      allow update: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isEmailVerified() && (isOwner(resource.data.vendorId) || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    function isValidSupportThread(data) {
+      return data.keys().hasAll(['userId', 'userName', 'userEmail', 'status']) &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 200 &&
+             data.userEmail is string && data.userEmail.size() <= 200 &&
+             data.status in ['open', 'closed'] &&
+             (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 10000));
+    }
+
+    function isValidSupportMessage(data) {
+      return data.keys().hasAll(['threadId', 'text', 'sender', 'timestamp']) &&
+             data.threadId is string && data.threadId.size() <= 128 &&
+             data.text is string && data.text.size() <= 10000 &&
+             data.sender in ['user', 'bot', 'admin'] &&
+             data.timestamp is timestamp;
+    }
+
+    match /support_threads/{userId} {
+      allow read: if isAdmin() || isOwner(userId) || userId.matches('^guest_.*');
+      allow create: if (isOwner(userId) || userId.matches('^guest_.*') || isAdmin()) && isValidSupportThread(incoming());
+      allow update: if isAdmin() || (
+        (isOwner(userId) || userId.matches('^guest_.*')) && 
+        isValidSupportThread(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt', 'status', 'updatedAt', 'userName', 'userEmail'])
+      );
+    }
+
+    match /support_messages/{messageId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.threadId == request.auth.uid) || resource.data.threadId.matches('^guest_.*');
+      allow create: if isValidSupportMessage(incoming()) && (
+        isAdmin() ||
+        (incoming().threadId == request.auth.uid) ||
+        (incoming().threadId.matches('^guest_.*'))
+      );
+    }
+
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow create: if isEmailVerified() && request.auth.uid in incoming().participants;
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.participants || isAdmin());
+    }
+
+    match /chat_messages/{messageId} {
+      allow read: if isSignedIn() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow create: if isEmailVerified() && request.auth.uid == incoming().senderId;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isEmailVerified() && incoming().buyerId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isAdmin();
+      allow update: if isOwner(resource.data.userId) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isAdmin();
+    }
+  }
+}

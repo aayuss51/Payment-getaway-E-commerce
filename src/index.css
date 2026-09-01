@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Premium Red Palette */
+  --color-primary: #1a1a1a;   /* Main Text/Headers */
+  --color-secondary: #dc2626; /* Brand Accent Red */
+  --color-accent: #dc2626; 
+  --color-paper: #ffffff;    /* Primary Background */
+  --color-surface: #f6f6f7;  /* Light Neutral Surface */
+  --color-border: #e1e3e5;   /* Subtle Border Color */
+  
+  --color-gold-50: #fffcf0;
+  --color-gold-100: #fef9c3;
+  --color-gold-200: #fef08a;
+  --color-gold-300: #fde047;
+  --color-gold-400: #facc15;
+  --color-gold-500: #eab308;
+  --color-gold-600: #ca8a04;
+  --color-gold-700: #a16207;
+  --color-gold-800: #854d0e;
+  --color-gold-900: #713f12;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-chat-bg: #f6f6f7;
+  --color-chat-bubble-sent: #dc2626;
+  --color-chat-bubble-received: #ffffff;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-paper text-primary antialiased selection:bg-red-50 selection:text-red-900;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans tracking-tight font-semibold text-gray-900;
+  }
+  
+  p {
+    @apply leading-relaxed text-gray-600;
+  }
+}
+
+@layer utilities {
+  .store-glass {
+    @apply bg-white/80 backdrop-blur-md border-b border-white/20 shadow-sm;
+  }
+
+  .store-card {
+    @apply bg-white border border-border rounded-xl transition-all duration-300;
+  }
+
+  .store-input {
+    @apply w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none bg-white transition-all;
+  }
+
+  .store-button {
+    @apply px-6 py-2 bg-secondary text-white font-semibold rounded-lg transition-all shadow-sm;
+  }
+
+  .lux-border {
+    @apply border border-red-200/20;
+  }
+
+  .lux-glass {
+    @apply bg-white/70 backdrop-blur-xl border-b border-red-200/20;
+  }
+
+  .chat-bg-pattern {
+    background-color: #f6f6f7;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23dc2626' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+}

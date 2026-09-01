@@ -1,0 +1,323 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for buyers, vendors, and admins",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["buyer", "vendor", "admin"] },
+        "tier": { "type": "string", "enum": ["basic", "premium"], "description": "Vendor tier level" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "phoneNumber": { "type": "string" },
+        "address": { "type": "object" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Vendor": {
+      "title": "Vendor",
+      "description": "Vendor store details and KYC",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User UID" },
+        "storeName": { "type": "string" },
+        "storeSlug": { "type": "string" },
+        "description": { "type": "string" },
+        "shopLocation": { "type": "string", "description": "Physical location or Google Maps link" },
+        "logoUrl": { "type": "string" },
+        "bannerUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "suspended"] },
+        "tier": { "type": "string", "enum": ["basic", "premium"] },
+        "adminNotes": { "type": "string" },
+        "verificationScore": { "type": "number", "description": "AI generated risk score 0-100" },
+        "kycDetails": { 
+          "type": "object",
+          "properties": {
+            "panNumber": { "type": "string" },
+            "panCardUrl": { "type": "string" },
+            "businessRegistrationNumber": { "type": "string" },
+            "businessRegistrationUrl": { "type": "string" }
+          },
+          "required": ["panNumber", "panCardUrl"]
+        },
+        "commissionRate": { "type": "number" },
+        "balance": { "type": "number" },
+        "isOnline": { "type": "boolean", "description": "Whether the vendor is currently online" },
+        "getawayMessages": {
+          "type": "array",
+          "description": "Predefined automated responses for when the vendor is offline",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "keyword": { "type": "string", "description": "Keyword or topic this message covers" },
+              "message": { "type": "string", "description": "The automated response text" }
+            },
+            "required": ["id", "keyword", "message"]
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "rating": { "type": "number", "description": "Average rating" },
+        "reviewsCount": { "type": "integer", "description": "Total number of reviews" },
+        "sliderImages": {
+          "type": "array",
+          "description": "Custom hero sliders for the vendor store",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "title": { "type": "string" },
+              "link": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "required": ["url"]
+          }
+        }
+      },
+      "required": ["uid", "storeName", "status", "kycDetails"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product listed by a vendor",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "stock": { "type": "integer" },
+        "status": { "type": "string", "enum": ["active", "draft", "out_of_stock"] },
+        "approvalStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "isFeatured": { "type": "boolean" },
+        "variants": { "type": "array" },
+        "seo": { "type": "object" }
+      },
+      "required": ["vendorId", "name", "price", "category"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order containing multiple items",
+      "type": "object",
+      "properties": {
+        "buyerId": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "processing", "shipped", "delivered", "cancelled"] },
+        "paymentMethod": { "type": "string" },
+        "shippingAddress": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["buyerId", "items", "totalAmount", "status"]
+    },
+    "Brand": {
+      "title": "Brand",
+      "description": "Trusted brand logo and name",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "logoUrl"]
+    },
+    "Payout": {
+      "title": "Payout",
+      "description": "Vendor payout request",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed", "rejected"] },
+        "method": { "type": "string", "enum": ["bank_transfer", "esewa", "khalti"] },
+        "accountDetails": { "type": "object" },
+        "adminNotes": { "type": "string" },
+        "processedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vendorId", "amount", "status", "method", "accountDetails", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial record for vendor ledger",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "type": { "type": "string", "enum": ["sale", "payout", "refund", "adjustment"] },
+        "amount": { "type": "number", "description": "Negative for payouts/refunds, positive for sales" },
+        "description": { "type": "string" },
+        "referenceId": { "type": "string", "description": "Order ID or Payout ID" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vendorId", "type", "amount", "createdAt"]
+    },
+    "SupportThread": {
+      "title": "SupportThread",
+      "description": "A support conversation thread for a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "userEmail", "status"]
+    },
+    "SupportMessage": {
+      "title": "SupportMessage",
+      "description": "An individual message within a support thread",
+      "type": "object",
+      "properties": {
+        "threadId": { "type": "string", "description": "The UID of the user this thread belongs to" },
+        "text": { "type": "string" },
+        "sender": { "type": "string", "enum": ["user", "bot", "admin"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" }
+      },
+      "required": ["threadId", "text", "sender"]
+    },
+    "ChatThread": {
+      "title": "ChatThread",
+      "description": "A conversation between a customer and a vendor",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "userName": { "type": "string" },
+        "vendorName": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants", "userId", "vendorId", "userName", "vendorName"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in a customer-vendor chat",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderType": { "type": "string", "enum": ["user", "vendor"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "text", "senderId", "senderType"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer review for a vendor",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "buyerPhoto": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "vendorId", "buyerId", "rating", "comment", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notification for users (vendors/buyers)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "warning", "success", "error"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "metadata": { "type": "object", "description": "Optional extra data related to the notification" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/vendors/{uid}": {
+      "schema": "Vendor",
+      "description": "Public vendor store data"
+    },
+    "/pan_registry/{panNumber}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "uid": { "type": "string" }
+        }
+      },
+      "description": "Registry for ensuring PAN uniqueness anonymously"
+    },
+    "/vendors/{uid}/private/kyc": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "panNumber": { "type": "string" },
+          "panCardUrl": { "type": "string" },
+          "businessRegistrationNumber": { "type": "string" },
+          "businessRegistrationUrl": { "type": "string" }
+        }
+      },
+      "description": "Sensitive vendor KYC details"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Global product list"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders"
+    },
+    "/brands/{brandId}": {
+      "schema": "Brand",
+      "description": "Trusted brands showcase"
+    },
+    "/payouts/{payoutId}": {
+      "schema": "Payout",
+      "description": "Vendor payout requests"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Financial ledger entries"
+    },
+    "/support_threads/{userId}": {
+      "schema": "SupportThread",
+      "description": "Support conversation threads"
+    },
+    "/support_messages/{messageId}": {
+      "schema": "SupportMessage",
+      "description": "Support chat messages"
+    },
+    "/chats/{chatId}": {
+      "schema": "ChatThread",
+      "description": "Customer-Vendor chat threads"
+    },
+    "/chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages in customer-vendor chats"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Customer reviews for vendors"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    }
+  }
+}
