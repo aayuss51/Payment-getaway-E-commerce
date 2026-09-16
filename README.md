@@ -1,4 +1,6 @@
-# Bazaar - Multi-Vendor Marketplace
+# Bazaar - Multi-Vendor Marketplace 
+Live at : https://bazaar-sable.vercel.app
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/5704c45a-e3f8-4d70-86cf-37b294dee2ba" />
 
 Nepal's leading multi-vendor marketplace connecting local artisans and international brands with buyers across the globe.
 
